@@ -1,0 +1,131 @@
+---
+title: "Untitled"
+author: "EJR"
+date: "2025-11-03"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(tidyverse)
+library(ggridges)
+data <- read.csv("focalgenera2.csv")
+
+
+#presence absence
+datasummary <- data %>%
+  group_by(Genus, Time.Category, Present) %>%
+  summarize(n = n()) %>%
+  pivot_wider(names_from = Present, values_from = n, values_fill = 0) %>%
+  mutate(prop_present = present/(present+absent))
+
+ggplot(datasummary, aes(x = Time.Category, y = prop_present)) + 
+  geom_col(width=0.5) + 
+  facet_wrap(~Genus, ncol = 2) +
+  theme_test() + 
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0))) +
+  scale_x_discrete(labels = time_labs) + 
+  xlab("Time Since Prescribed Burn") + 
+  ylab("Median Daubenmeyer Cover")
+
+
+#density when present
+
+presences <- data %>%
+  filter(Present == "present")
+
+
+ggplot(presences, aes(x = Time.Category, y = Daubenmeyer)) + 
+  geom_jitter(size = 5, alpha = 0.1, width = 0.2, height = 0.01) + 
+  facet_wrap(~Genus, ncol=2)
+
+presences_summary <- presences %>%
+  group_by(Genus, Time.Category) %>%
+  summarize(median = median(Daubenmeyer))
+
+time_labs <- c("<1 year", "1 - 5 years", "5 - 10 years", ">10 years", "Never")
+
+#median and raw data option
+ggplot() + 
+  geom_col(data = presences_summary, aes(x = Time.Category, y = median), width=0.5) + 
+  geom_jitter(data = presences, aes(x = Time.Category, y = Daubenmeyer), width = 0.18, height = 0, size = 4, alpha = 0.1) + 
+  facet_wrap(~Genus, ncol = 2) + theme_test() + 
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0))) +
+  scale_x_discrete(labels = time_labs) + 
+  xlab("Time Since Prescribed Burn") + 
+  ylab("Median Daubenmeyer Cover") +
+  scale_fill_manual(values = c("#223204"))
+
+#dot color #223204, bar color tbd
+#red is red: #7B1315
+
+
+#dotplot option
+ggplot() + 
+  geom_col(data = presences_summary, aes(x = Time.Category, y = median), width=0.5, alpha = 0.5) + 
+  geom_dotplot(data = presences, aes(x = Time.Category, y = Daubenmeyer), binaxis = "y", size = 4, alpha = 0.5, stackdir = "center") + 
+  facet_wrap(~Genus, ncol = 2) + 
+  theme_test() + 
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0))) +
+  scale_x_discrete(labels = time_labs) + 
+  xlab("Time Since Prescribed Burn") + 
+  ylab("Median Daubenmeyer Cover")
+
+
+#ridgeline option
+ggplot(presences, aes(y = Time.Category, x = Daubenmeyer)) + 
+  geom_density_ridges(quantile_lines = TRUE, quantiles = 2, jittered_points = TRUE) + 
+  facet_wrap(~Genus, ncol = 2) + 
+  theme_test()
+
+
+#binline option
+ggplot(presences, aes(x = Daubenmeyer, y = Time.Category)) +
+  geom_density_ridges(stat = "binline", bins = 5, scale = 2.2) +
+  facet_wrap(~Genus, ncol = 2)
+
+#fluctuation plot option
+presence_tabs <- presences %>%
+  group_by(Genus, Time.Category, Daubenmeyer) %>%
+  summarize (N = n())
+
+ggplot(presence_tabs, aes(x = Time.Category, y = Daubenmeyer)) + 
+  geom_point(aes(size = N, alpha = N), stroke = NA)+
+  scale_size_continuous(range = c(3, 15)) +
+  facet_wrap(~Genus, ncol = 2) +
+    theme_test() + 
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0))) +
+  scale_x_discrete(labels = time_labs) + 
+  xlab("Time Since Prescribed Burn") + 
+  ylab("Median Daubenmeyer Cover")
+             
+
+```
+
+
+```{r}
+#OLD
+data <-read.csv("PostermasterdataSGLburns.csv")
+
+cleandata <- data %>%
+  filter(Genus %in% c("Gaylussacia", "Rubus", "Vaccinium", "Gaultheria"))
+
+datasummary <- cleandata %>%
+  group_by(Genus, Time.Category) %>%
+  summarize (median = median(Daubenmeyer))
+
+ggplot(cleandata, aes(x = Time.Category, y = Daubenmeyer)) + geom_jitter(size = 5, alpha = 0.1, width = 0.2) + facet_wrap(~Genus, ncol=2)
+
+write.csv(cleandata, "focalgenera.csv")
+```
+
+
