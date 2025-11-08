@@ -10,6 +10,8 @@ editor_options:
 ```{r}
 library(tidyverse)
 library(ggridges)
+library(extrafont)
+font_import()
 data <- read.csv("focalgenera2.csv")
 
 
@@ -20,16 +22,21 @@ datasummary <- data %>%
   pivot_wider(names_from = Present, values_from = n, values_fill = 0) %>%
   mutate(prop_present = present/(present+absent))
 
-ggplot(datasummary, aes(x = Time.Category, y = prop_present)) + 
-  geom_col(width=0.5) + 
+text size is fixed for export at poster size
+ggplot(datasummary) +
+  theme_test() + 
+  geom_col(aes(x = Time.Category, y = prop_present), fill = "#223204", alpha = 0.5, color = "black", width=0.5) +
   facet_wrap(~Genus, ncol = 2) +
   theme_test() + 
   theme(strip.text = element_text(face = "italic"), 
         axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
-        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0))) +
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25)) +
   scale_x_discrete(labels = time_labs) + 
-  xlab("Time Since Prescribed Burn") + 
-  ylab("Median Daubenmeyer Cover")
+   scale_y_continuous(limits = c(0, 1), expand = c(0,0)) +
+  xlab("Years Since Prescribed Burn") + 
+  ylab("Proportion of Occurrence")
 
 
 #density when present
@@ -46,20 +53,23 @@ presences_summary <- presences %>%
   group_by(Genus, Time.Category) %>%
   summarize(median = median(Daubenmeyer))
 
-time_labs <- c("<1 year", "1 - 5 years", "5 - 10 years", ">10 years", "Never")
+time_labs <- c("<1", "1 - 5", "5 - 10", ">10", "No Burn")
 
 #median and raw data option
 ggplot() + 
-  geom_col(data = presences_summary, aes(x = Time.Category, y = median), width=0.5) + 
-  geom_jitter(data = presences, aes(x = Time.Category, y = Daubenmeyer), width = 0.18, height = 0, size = 4, alpha = 0.1) + 
-  facet_wrap(~Genus, ncol = 2) + theme_test() + 
+  theme_test() +
+  geom_col(data = presences_summary, aes(x = Time.Category, y = median), fill = "#7B1315", width=0.5, alpha = 0.5, color ="black") +
+  geom_jitter(data = presences, aes(x = Time.Category, y = Daubenmeyer), width = 0.14, height = 0, size = 4, alpha = 0.5, pch = 21, fill = "#7B1315", color = "black") + 
+  facet_wrap(~Genus, ncol = 2) +
   theme(strip.text = element_text(face = "italic"), 
         axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
-        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0))) +
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25)) +
   scale_x_discrete(labels = time_labs) + 
-  xlab("Time Since Prescribed Burn") + 
-  ylab("Median Daubenmeyer Cover") +
-  scale_fill_manual(values = c("#223204"))
+  scale_y_continuous(limits = c(0, 5.2), expand = c(0,0)) +
+  xlab("Years Since Prescribed Burn") + 
+  ylab("Median Daubenmeyer Cover")
 
 #dot color #223204, bar color tbd
 #red is red: #7B1315
