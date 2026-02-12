@@ -8,6 +8,97 @@ editor_options:
 ---
 
 ```{r}
+masterdata <- read.csv("PostermasterdataSGLburns.csv")
+
+masterdatasummary <- masterdata %>%
+  group_by(Species.common, Time.Category) %>%
+  summarize(n=n_distinct(Species.common))
+
+ggplot(masterdatasummary) + geom_col(aes(x= Time.Category, y=n)) +  
+  xlab("Years Since Prescribed Burn") + 
+  ylab("Species Richness")
+
+
+
+```
+
+```{r}
+library(tidyverse)
+library(ggridges)
+library(extrafont)
+font_import()
+focalgenera <- read.csv("focalgenera2.csv")
+
+
+#presence absence
+datasummary300 <- focalgenera %>%
+  filter(SGL == "300") %>%
+  group_by(Genus, Time.Category, Present,) %>%
+  summarize(n = n()) %>%
+  pivot_wider(names_from = Present, values_from = n, values_fill = 0) %>%
+  mutate(prop_present = present/(present+absent))
+
+##text size is fixed for export at poster size
+ggplot(datasummary300) +
+  theme_test() + 
+  geom_col(aes(x = Time.Category, y = prop_present), fill = "#223204", alpha = 0.5, color = "black", width=0.5) +
+  facet_wrap(~Genus, ncol = 2) +
+  theme_test() + 
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25)) +
+  scale_x_discrete(labels = time_labs) + 
+   scale_y_continuous(limits = c(0, 1), expand = c(0,0)) +
+  xlab("Years Since Prescribed Burn") + 
+  ylab("Proportion of Occurrence")
+
+
+#density when present
+
+presences <- focalgenera %>%
+  filter(Present == "present") 
+
+## filter out density when present for just SGL 300
+presences300 <- focalgenera %>%
+  filter(Present == "present") %>%
+  filter(SGL == "300")
+
+presences_summary300 <- presences300 %>%
+  group_by(Genus, Time.Category) %>%
+  summarize(median = median(Daubenmeyer))
+
+##dotplot for 300
+ggplot() + 
+  geom_col(data = presences_summary300, aes(x = Time.Category, y = median), width=0.5, alpha = 0.5) + 
+  geom_dotplot(data = presences300, aes(x = Time.Category, y = Daubenmeyer), binaxis = "y", size = 4, alpha = 0.5, stackdir = "center") + 
+  facet_wrap(~Genus, ncol = 2) + 
+  theme_test() + 
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0))) +
+  scale_x_discrete(labels = time_labs) + 
+  xlab("Time Since Prescribed Burn") + 
+  ylab("Median Daubenmeyer Cover")
+
+
+ggplot(presences, aes(x = Time.Category, y = Daubenmeyer)) + 
+  geom_jitter(size = 5, alpha = 0.1, width = 0.2, height = 0.01) + 
+  facet_wrap(~Genus, ncol=2)
+
+presences_summary <- presences %>%
+  group_by(Genus, Time.Category) %>%
+  summarize(median = median(Daubenmeyer))
+
+##time_labs <- c("<1", "1 - 5", "5 - 10", ">10", "No Burn")
+
+#dot color #223204, bar color tbd
+#red is red: #7B1315
+
+```
+
+```{r}
 library(tidyverse)
 library(ggridges)
 library(extrafont)
@@ -22,7 +113,7 @@ datasummary <- data %>%
   pivot_wider(names_from = Present, values_from = n, values_fill = 0) %>%
   mutate(prop_present = present/(present+absent))
 
-text size is fixed for export at poster size
+##text size is fixed for export at poster size
 ggplot(datasummary) +
   theme_test() + 
   geom_col(aes(x = Time.Category, y = prop_present), fill = "#223204", alpha = 0.5, color = "black", width=0.5) +
