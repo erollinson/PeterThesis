@@ -7,7 +7,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-Libraries
+# Libraries
 ```{r}
 library(tidyverse)
 library(ggridges)
@@ -15,6 +15,7 @@ library(extrafont)
 font_import()
 ```
 
+# Species Richness
 ```{r}
 masterdata <- read.csv("PostermasterdataSGLburns.csv")
 
@@ -28,7 +29,7 @@ ggplot(masterdatasummary) + geom_col(aes(x= Time.Category, y=n)) +
 
 ```
 
-For SGL 300 only
+#SGL 300
 ```{r}
 
 focalgenera <- read.csv("focalgenera2.csv")
