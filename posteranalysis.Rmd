@@ -17,13 +17,15 @@ font_import()
 
 # Species Richness
 ```{r}
-masterdata <- read.csv("PostermasterdataSGLburns.csv")
+masterdata <- read.csv("PostermasterdataSGLburns-cleaning.csv")
 
 masterdatasummary <- masterdata %>%
   group_by(Species.common, Time.Category) %>%
   summarize(n=n_distinct(Species.common))
 
-ggplot(masterdatasummary) + geom_col(aes(x= Time.Category, y=n)) +  
+ggplot(masterdatasummary) + 
+  theme_test() +
+  geom_col(aes(x= factor(Time.Category, levels =c("0-1", "1-5", "5-10", "10+", "Never")), y=n)) +  
   xlab("Years Since Prescribed Burn") + 
   ylab("Species Richness")
 
