@@ -10,15 +10,26 @@ editor_options:
 # Libraries
 ```{r}
 library(tidyverse)
-library(ggridges)
-library(extrafont)
+library(ggridges) #for ridgeplot options
+library(extrafont) #for plot font control
+library(reshape2) #for site by species matrix
+library(vegan) #for dissimilarity matrix
+library(ggh4x) #for nested facets in plots
 font_import()
 ```
 
-# Species Richness
+# Species Richness and Composition
+## Richness
 ```{r}
+#import
 masterdata <- read.csv("PostermasterdataSGLburns-cleaning.csv")
 
+#clean
+names(masterdata)[names(masterdata) == "Transect.."] <- "Transect" #cleaning up column name for ease of later code
+masterdata <- masterdata %>%
+  mutate(Species.common = recode(Species.common, "nothern dewberry" = "northern dewberry", "sassafrass" = "sassafras")) #fix typos
+
+#summary
 masterdatasummary <- masterdata %>%
   group_by(Species.common, Time.Category) %>%
   summarize(n=n_distinct(Species.common))
@@ -31,7 +42,76 @@ ggplot(masterdatasummary) +
 
 ```
 
-#SGL 300
+## Species richness x location
+
+```{r}
+richness_site_summary <- masterdata %>%
+  group_by(SGL, Time.Category) %>%
+  summarize(n = n_distinct(Species.common))
+
+time_labs <- c("<1", "1 - 5", "5 - 10", ">10", "No Burn")
+
+ggplot(richness_site_summary) +
+  theme_test() + 
+  geom_col(aes(x = Time.Category, y = n), fill = "#223204", alpha = 0.5, color = "black", width=0.5) +
+  geom_rug()+
+  facet_wrap(~SGL) +
+  theme_test() + 
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25)) +
+  scale_x_discrete(labels = time_labs) + 
+  # scale_y_continuous(limits = c(0, 1), expand = c(0,0)) +
+  xlab("Years Since Prescribed Burn") + 
+  ylab("Richness")
+```
+
+##Ordinations, Composition 
+```{r}
+# omitted because creating the Latin names column isn't useful while there are observations blank for Genus/Species - will work with common names for now
+# site_sp_matrix <- masterdata %>%
+#   mutate(Latin = paste(Genus, Species), Point = paste(Burn.Unit, Transect)) %>%
+#   select(SGL, Transect, Burn.Unit, Time.Category, Latin, Point)
+
+#pivot to make a row for each transect and a column for each species frequency in that transect (min = 0 / absent, max = all quadrats in transect)
+site_sp_matrix <- masterdata %>%
+  mutate(TransectUnique = paste(Burn.Unit, Transect), Presence = "1") %>%
+  dcast(TransectUnique ~ Species.common, value.var = "Presence", fun.aggregate = length, fill = 0)
+
+#cleanup to allow vegdist() to work
+rownames(site_sp_matrix) <- site_sp_matrix$TransectUnique
+  
+#calculate pairwise dissimilarities, Bray-Curtis
+bray_matrix <- vegdist(site_sp_matrix[,2:ncol(site_sp_matrix)], method = "bray")
+
+#calculate NMDS scores for all pairwise dissimilarities
+nmds <- metaMDS(bray_matrix, trymax = 999)
+ordiplot(nmds)
+
+#export NMDS scores for ggplot  
+nmds_scores <- scores(nmds, display = "sites") %>%
+  as.data.frame() %>%
+  rownames_to_column("TransectUnique")
+
+#attach site and burn history information to NMDS scores list
+sites <- masterdata %>%
+  mutate(TransectUnique = paste(Burn.Unit, Transect)) %>%
+  select(SGL, Time.Category, TransectUnique) %>%
+  distinct(.keep_all = TRUE)
+nmds_scores <- nmds_scores %>%
+  left_join(sites, by = "TransectUnique")
+
+#visuals
+nmds_scores$SGL <- as.factor(nmds_scores$SGL)
+ggplot(data = nmds_scores, aes(x = NMDS1, y = NMDS2, color = SGL, shape = Time.Category)) + geom_point()
+
+```
+
+
+#Single site analyses
+##SGL 300
 ```{r}
 
 focalgenera <- read.csv("focalgenera2.csv")
@@ -103,11 +183,9 @@ presences_summary <- presences %>%
 
 ```
 
+#Focal Genera
+## Base figures for frequency, cover
 ```{r}
-library(tidyverse)
-library(ggridges)
-library(extrafont)
-font_import()
 data <- read.csv("focalgenera2.csv")
 
 
@@ -217,10 +295,9 @@ ggplot(presence_tabs, aes(x = Time.Category, y = Daubenmeyer)) +
 
 ```
 
-nested facet test - all SGL, all species
+## Frequency, cover separated by site
 
 ```{r}
-library(ggh4x)
 genus_site_summary <- data %>%
   group_by(SGL, Genus, Time.Category, Present,) %>%
   summarize(n = n()) %>%
@@ -246,6 +323,7 @@ ggplot(genus_site_summary) +
 ```
 
 
+#Old Code
 
 ```{r}
 #OLD
