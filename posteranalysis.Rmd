@@ -7,6 +7,8 @@ editor_options:
   chunk_output_type: console
 ---
 
+
+black chokeberry for sgl 300 transect 7 should be burn unit 300 -2 not burn unit 300-1
 # Libraries
 ```{r}
 library(tidyverse)
@@ -27,7 +29,7 @@ masterdata <- read.csv("PostermasterdataSGLburns-cleaning.csv")
 #clean
 names(masterdata)[names(masterdata) == "Transect.."] <- "Transect" #cleaning up column name for ease of later code
 masterdata <- masterdata %>%
-  mutate(Species.common = recode(Species.common, "nothern dewberry" = "northern dewberry", "sassafrass" = "sassafras")) #fix typos
+  mutate(Species.common = recode(Species.common, "nothern dewberry" = "northern dewberry", "sassafrass" = "sassafras", "Moss morpho 3" = "moss morpho 3")) #fix typos
 
 #summary
 masterdatasummary <- masterdata %>%
@@ -105,7 +107,7 @@ nmds_scores <- nmds_scores %>%
 
 #visuals
 nmds_scores$SGL <- as.factor(nmds_scores$SGL)
-ggplot(data = nmds_scores, aes(x = NMDS1, y = NMDS2, color = SGL, shape = Time.Category)) + geom_point()
+ggplot(data = nmds_scores, aes(x = NMDS1, y = NMDS2, color = SGL, shape = Time.Category)) + geom_point(size = 5)
 
 ```
 
