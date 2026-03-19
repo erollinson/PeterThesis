@@ -44,6 +44,45 @@ ggplot(masterdatasummary) +
 
 ```
 
+# Species Richness based on time since burn 
+```{r}
+masterdataDSB <- masterdata %>% drop_na(Days.Since.Burn) ##create table dropping the NAs in days since burn (the never burned sites)
+
+DSBsummary <- masterdataDSB %>%
+  group_by(SGL, Days.Since.Burn) %>%
+  summarize(n = n_distinct(Species.common))
+
+ggplot(DSBsummary) +
+  theme_test() + 
+  geom_point(aes(Days.Since.Burn,n), fill = "#223204", alpha = 0.5, color = "black", width=0.5) +
+  geom_rug()+
+  facet_wrap(~SGL) +
+  theme_test() + 
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25)) +
+  xlab("Days Since Prescribed Burn") + 
+  ylab("Richness")
+
+ggplot(DSBsummary) +
+  theme_test() + 
+  geom_point(aes(Days.Since.Burn,n), fill = "#223204", alpha = 0.5, color = "black", width=0.5) +
+#  geom_rug()+
+#  facet_wrap(~SGL) +
+#  theme_test() + 
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25)) +
+  xlab("Days Since Prescribed Burn") + 
+  ylab("Richness")
+
+
+```
+
 ## Species richness x location
 
 ```{r}
