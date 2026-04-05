@@ -33,15 +33,36 @@ masterdata <- masterdata %>%
 
 #summary
 masterdatasummary <- masterdata %>%
-  group_by(Species.common, Time.Category) %>%
+  group_by(Time.Category) %>%
   summarize(n=n_distinct(Species.common))
+
+time_labs <- c("<1", "1 - 5", "5 - 10", ">10", "No Burn")
 
 ggplot(masterdatasummary) + 
   theme_test() +
-  geom_col(aes(x= factor(Time.Category, levels =c("0-1", "1-5", "5-10", "10+", "Never")), y=n)) +  
+  geom_col(aes(x=factor(Time.Category, levels =c("0-1", "1-5", "5-10", "10+", "Never")),
+                         y=n), fill="#223204", alpha = 0.5, color="black") +  
+   theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle=45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25)) +
+  scale_x_discrete(labels = time_labs) +
   xlab("Years Since Prescribed Burn") + 
-  ylab("Species Richness")
+  ylab("Richness")
 
+ggplot(masterdatasummary) +
+  theme_test() + 
+  geom_col(aes(x = Time.Category, y = n), fill = "#223204", alpha = 0.5, width=0.5) +
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 18)) +
+  scale_x_discrete(labels = time_labs) + 
+  # scale_y_continuous(limits = c(0, 1), expand = c(0,0)) +
+  xlab("Years Since Prescribed Burn") + 
+  ylab("Richness")
 ```
 
 # Species Richness based on time since burn 
@@ -94,7 +115,7 @@ time_labs <- c("<1", "1 - 5", "5 - 10", ">10", "No Burn")
 
 ggplot(richness_site_summary) +
   theme_test() + 
-  geom_col(aes(x = Time.Category, y = n), fill = "#223204", alpha = 0.5, color = "black", width=0.5) +
+  geom_col (aes(x = factor(Time.Category, levels =c("0-1", "1-5", "5-10", "10+", "Never")), y = n), fill = "#223204", alpha = 0.5, color = "black", width=0.5) +
   geom_rug()+
   facet_wrap(~SGL) +
   theme_test() + 
@@ -102,7 +123,7 @@ ggplot(richness_site_summary) +
         axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
         axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
         axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
-        text = element_text(family = "Open Sans Semibold", size = 25)) +
+        text = element_text(family = "Open Sans Semibold", size = 20)) +
   scale_x_discrete(labels = time_labs) + 
   # scale_y_continuous(limits = c(0, 1), expand = c(0,0)) +
   xlab("Years Since Prescribed Burn") + 
@@ -382,4 +403,32 @@ ggplot(cleandata, aes(x = Time.Category, y = Daubenmeyer)) + geom_jitter(size = 
 write.csv(cleandata, "focalgenera.csv")
 ```
 
+## Species richness x location with fall and added plots at SGL 38
+
+```{r}
+masterdatafall <- read.csv("PostermasterdataSGLburns-withfall.csv")
+masterdataNF <- filter_out(masterdatafall, Season == "fall")
+
+richness_site_summary_extra <- masterdataNF %>%
+  group_by(SGL, Time.Category) %>%
+  summarize(n = n_distinct(Species.common))
+
+time_labs <- c("<1", "1 - 5", "5 - 10", ">10", "No Burn")
+
+ggplot(richness_site_summary_extra) +
+  theme_test() + 
+  geom_col(aes(x = Time.Category, y = n), fill = "#223204", alpha = 0.5, color = "black", width=0.5) +
+  geom_rug()+
+  facet_wrap(~SGL) +
+  theme_test() + 
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 18)) +
+  scale_x_discrete(labels = time_labs) + 
+  # scale_y_continuous(limits = c(0, 1), expand = c(0,0)) +
+  xlab("Years Since Prescribed Burn") + 
+  ylab("Richness")
+```
 
