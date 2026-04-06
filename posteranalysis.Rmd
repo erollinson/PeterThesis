@@ -167,9 +167,29 @@ nmds_scores <- nmds_scores %>%
 
 #visuals
 nmds_scores$SGL <- as.factor(nmds_scores$SGL)
-ggplot(data = nmds_scores, aes(x = NMDS1, y = NMDS2, color = SGL, shape = Time.Category)) + geom_point(size = 5)
+ggplot(data = nmds_scores, aes(x = NMDS1, y = NMDS2, color = SGL, shape = Time.Category)) + geom_point(size = 5) + coord_cartesian(xlim = c(-2, 2), ylim = c(-2,2)) + theme_bw()
+
+
+#anosim
+
+#1 - make a version of the site sp matrix that contains separate columns for site and time
+site_sp_matrix_ann <- site_sp_matrix %>%
+  left_join(sites, by = "TransectUnique") %>%
+  relocate(SGL, .after = TransectUnique) %>%
+  relocate(Time.Category, .after = SGL)
+
+#2 - make a site by species matrix remove the labelling columns
+com <- site_sp_matrix_ann [,4:ncol(site_sp_matrix_ann)]
+com <- as.matrix(com)
+
+#3 - run the anosim
+
+anosim(x = com, grouping = site_sp_matrix_ann$SGL, permutations = 999, distance = "bray")
+
+anosim(x = com, grouping = site_sp_matrix_ann$Time.Category, permutations = 999, distance = "bray")
 
 ```
+link for ANOSIM v PERMANOVA, noting that ANOSIM cannot do interactions - https://onlinelibrary.wiley.com/doi/full/10.1111%2Faec.13059
 
 
 #Single site analyses
