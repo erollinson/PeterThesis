@@ -8,7 +8,7 @@ editor_options:
 ---
 
 
-black chokeberry for sgl 300 transect 7 should be burn unit 300 -2 not burn unit 300-1
+
 # Libraries
 ```{r}
 library(tidyverse)
@@ -17,6 +17,7 @@ library(extrafont) #for plot font control
 library(reshape2) #for site by species matrix
 library(vegan) #for dissimilarity matrix
 library(ggh4x) #for nested facets in plots
+library(car)
 font_import()
 ```
 
@@ -63,7 +64,7 @@ ggplot(masterdatasummary) +
   # scale_y_continuous(limits = c(0, 1), expand = c(0,0)) +
   xlab("Years Since Prescribed Burn") + 
   ylab("Richness")
-```
+ ```
 
 # Species Richness based on time since burn 
 ```{r}
@@ -167,7 +168,15 @@ nmds_scores <- nmds_scores %>%
 
 #visuals
 nmds_scores$SGL <- as.factor(nmds_scores$SGL)
-ggplot(data = nmds_scores, aes(x = NMDS1, y = NMDS2, color = SGL, shape = Time.Category)) + geom_point(size = 5) + coord_cartesian(xlim = c(-2, 2), ylim = c(-2,2)) + theme_bw()
+ggplot(data = nmds_scores, aes(x = NMDS1, y = NMDS2, color = SGL, shape = Time.Category)) + 
+  geom_point(size = 5) + 
+  coord_cartesian(xlim = c(-1, 2), ylim = c(-1.5,1.5)) + 
+  theme_bw() +
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25))
 
 
 #anosim
@@ -266,9 +275,10 @@ presences_summary <- presences %>%
 ```
 
 #Focal Genera
-## Base figures for frequency, cover
+
+##Data loading and summarizing
 ```{r}
-data <- read.csv("focalgenera2.csv")
+data <- read.csv("focalgenera4.csv")
 
 
 #presence absence
@@ -277,6 +287,89 @@ datasummary <- data %>%
   summarize(n = n()) %>%
   pivot_wider(names_from = Present, values_from = n, values_fill = 0) %>%
   mutate(prop_present = present/(present+absent))
+
+#presence absence separated by site
+sitedatasummary <-  data %>%
+  group_by(SGL, Genus, Time.Category, Present) %>%
+  summarize(n = n()) %>%
+  pivot_wider(names_from = Present, values_from = n, values_fill = 0) %>%
+  mutate(prop_present = present/(present+absent))
+
+
+```
+
+## Data analysis - frequency (prop present)
+```{r}
+#use this one for talk - Type III SS GLM w/ binomial residual distribution, time x genus interaction
+m1 <- glm(prop_present ~ Time.Category * Genus, family = "binomial", data = sitedatasummary) %>%
+  Anova(type = "III")
+m1
+
+#could instead do this per quadrat as below, but this is more pseudoreplicated
+data_mod <- data
+data_mod$Present[data_mod$Present == "present"] <- 1
+data_mod$Present[data_mod$Present == "absent"] <- 0
+data_mod$Present <- as.numeric(data_mod$Present)
+
+#need to decide at some point in the future the best level for the EU for the presence/absence model; changing the stated sample size changes answers
+m1b <- glm(Present ~ Time.Category * Genus, family = "binomial", data = data_mod) %>% 
+  Anova(type = "III")
+m1b
+
+#separate per genus
+sitedatasummary_rubus <- sitedatasummary %>%
+  filter (Genus == "Rubus")
+
+##rubus
+mrubus <- glm(prop_present ~ Time.Category, family = "binomial", data = sitedatasummary_rubus) %>%
+  anova()
+mrubus
+
+##gaultheria
+sitedatasummary_gaultheria <- sitedatasummary %>%
+  filter (Genus == "Gaultheria")
+
+mgaultheria <- glm(prop_present ~ Time.Category, family = "binomial", data = sitedatasummary_gaultheria) %>%
+  anova()
+mgaultheria
+
+##gaylusaccia
+sitedatasummary_gaylussacia <- sitedatasummary %>%
+  filter (Genus == "Gaylussacia")
+mgaylussacia <- glm(prop_present ~ Time.Category, family = "binomial", data = sitedatasummary_gaylussacia) %>%
+  anova()
+mgaylussacia
+
+
+##vaccinium
+sitedatasummary_vaccinium <- sitedatasummary %>%
+  filter (Genus == "Vaccinium")
+mvaccinium <- glm(prop_present ~ Time.Category, family = "binomial", data = sitedatasummary_vaccinium) %>%
+  anova()
+mvaccinium
+
+```
+
+##Data analysis - cover
+```{r}
+cover_site_summary <- data %>%
+  group_by(SGL, Genus, Time.Category) %>%
+  summarize(median = median(Daubenmeyer))
+
+#use for talk - model with median daubenmeyer per unit (within SGL) as the unit of replication
+m2 <- lm(median ~ Time.Category * Genus, data = cover_site_summary) %>%
+  Anova(type = "III")
+m2
+
+#model that treats each quadrat as a replicate - this is pseudoreplicated - Type III SS GLM w/ binomial residual distribution, time x genus interaction
+m3 <- lm(Daubenmeyer ~ Time.Category * Genus, data = data) %>%
+  Anova(type = "III")
+m3
+```
+
+
+## Base figures for frequency, cover
+```{r}
 
 ##text size is fixed for export at poster size
 ggplot(datasummary) +
@@ -412,7 +505,7 @@ ggplot(genus_site_summary) +
 data <-read.csv("PostermasterdataSGLburns.csv")
 
 cleandata <- data %>%
-  filter(Genus %in% c("Gaylussacia", "Rubus", "Vaccinium", "Gaultheria"))
+  filter(Genus %in% c("Gaylussacia", "Rubus", "Vaccinium", "vaccinium"))
 
 datasummary <- cleandata %>%
   group_by(Genus, Time.Category) %>%
@@ -452,3 +545,6 @@ ggplot(richness_site_summary_extra) +
   ylab("Richness")
 ```
 
+
+#Old Data Processing Notes
+black chokeberry for sgl 300 transect 7 should be burn unit 300 -2 not burn unit 300-1
