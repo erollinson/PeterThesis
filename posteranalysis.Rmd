@@ -21,6 +21,85 @@ library(car)
 font_import()
 ```
 
+## spring vs fall
+```{r}
+library(tidyverse)
+install.packages("rstatix")
+library(rstatix)
+#import the raw CSv.
+Seasondata <- read.csv("finalproj.csv")
+#cleaning up column name for ease of later code
+names(Seasondata)[names(Seasondata) == "Transect.."] <- "Transect" 
+
+##add a field for unique transect IDs
+Seasondata <- Seasondata %>%
+mutate(TransectUnique = paste(Burn.Unit, Transect)) 
+
+##add a field for unique transect IDs for each season
+##Seasondata <- Seasondata %>%
+##mutate(TransectUniqueSeason = paste(Burn.Unit, Transect, Season))
+
+##Seasondata <- Seasondata %>%
+##mutate(springspecies)
+
+#create a summary table with number of species for each unique transect, split into spring and fall
+summaryseasons <- Seasondata %>%
+  ##grouping by transect and season
+  group_by(TransectUnique, Season) %>% 
+  ##summarizing the table with unique species to get species richness
+  summarize( 
+  species = n_distinct(Species.common)) %>%
+   ##placing values into 2 different columns, spring and fall
+    pivot_wider(names_from = Season,
+              values_from = species) %>%
+  ##dropping those that lack a pair
+    drop_na()
+
+##one for combined (cant just add the two because we want actually unique species for the combined)
+summaryallseason <- Seasondata %>%
+  ##grouping by transect
+  group_by(TransectUnique) %>% 
+  ##summarizing the table with unique species to get species richness
+  summarize( 
+  combined = n_distinct(Species.common)) %>%
+  ##dropping those that lack a pair
+    drop_na()
+
+##join the two tables
+summarycombined <- right_join(summaryallseason, summaryseasons)
+
+##performing bartlett test to check equallity of variances
+bartlett.test(richness ~ season, data=longer)
+
+##performing a t test for differences between spring and combined
+t.test(summarycombined$Spring, summarycombined$combined, paired=TRUE)
+
+##performing a t test for differences between fall and combined
+t.test(summarycombined$Fall, summarycombined$combined, paired=TRUE)
+
+##pivoting the table longer to work with the pairwise comparisons
+longer <- pivot_longer(data=summarycombined, cols = 2:4, names_to = "season", values_to = "richness") 
+
+##performing a pairwise t-test for spring fall and combined
+longer %>% 
+  pairwise_t_test(
+    richness ~ season, paired = FALSE,
+    p.adjust.method = "bonferroni"
+    )
+
+## Perform pairwise comparisons with bonferroni correction for multiple comparisons
+
+##the t-tests here suggest that there is no significant difference between species richness in spring and fall for the same plots. However, there is significantly greater species richness when combining unique species observations in spring and fall than just using spring or fall surveys alone. this implies that it may be worth performing both early and late season surveys as opposed to just one survey when assessing species diversity in habitat. 
+
+##box plot with spring, fall, and combined species richnesses with lines connectring paired observations
+ggplot(longer, aes(x = season, y = richness)) +
+  geom_boxplot(aes(fill = season), alpha = 0.5) +
+  geom_point() +
+  geom_line(aes(group = TransectUnique), alpha = 0.5) + # Light grey lines for individual pairs
+  theme_minimal() +
+  labs(title = "Species richness by season and combined seasons")
+
+```
 # Species Richness and Composition
 ## Richness
 ```{r}

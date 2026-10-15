@@ -1,0 +1,147 @@
+---
+title: "2026masterdata"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Libraries
+```{r}
+library(tidyverse)
+library(ggridges) #for ridgeplot options
+library(extrafont) #for plot font control
+library(reshape2) #for site by species matrix
+library(vegan) #for dissimilarity matrix
+library(ggh4x) #for nested facets in plots
+library(car)
+font_import()
+```
+
+# Species Richness and Composition
+## Richness
+```{r}
+#import
+masterdata <- read.csv("masterdata2026_csv.csv")
+
+#summary
+masterdatasummary <- masterdata %>%
+  group_by(Category.symbol) %>%
+  summarize(n=n_distinct(Species))
+
+#summary
+masterdatasummarycat <- masterdata %>%
+  group_by(Category.symbol) %>%
+  summarize(n=n_distinct(Transect))
+
+ggplot(masterdatasummary) + 
+  theme_test() +
+  geom_col(aes(x=Category.symbol, y=n), fill="#223204", alpha = 0.5, color="black") +  
+   theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle=45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25)) +
+  scale_x_discrete() +
+  xlab("Years Since Prescribed Burn") + 
+  ylab("Richness")
+```
+
+##Ordinations, Composition 
+```{r}
+#import 
+masterdata <- read.csv("masterdata2026_csv.csv")
+
+#clean
+names(masterdata)[names(masterdata) == "Transect.."] <- "Transect" #cleaning up column name for ease of later code
+
+#pivot to make a row for each transect and a column for each species frequency in that transect (min = 0 / absent, max = all quadrats in transect)
+#site_sp_matrix <- masterdata %>%
+#  mutate(TransectUnique = paste(Burn.Unit, Transect), Presence = "1") %>%
+#  dcast(TransectUnique ~ Species, value.var = "Presence", fun.aggregate = length, fill = 0)
+
+site_sp_matrix <- masterdata %>%
+  mutate(Transect = as.character(Transect), Presence = "1") %>%
+  dcast(Transect ~ Species, value.var = "Presence", fun.aggregate = length, fill = 0)
+
+
+#cleanup to allow vegdist() to work
+rownames(site_sp_matrix) <- site_sp_matrix$Transect
+  
+#calculate pairwise dissimilarities, Bray-Curtis
+bray_matrix <- vegdist(site_sp_matrix[,2:ncol(site_sp_matrix)], method = "bray")
+
+#calculate NMDS scores for all pairwise dissimilarities
+nmds <- metaMDS(bray_matrix, trymax = 999)
+ordiplot(nmds)
+
+#export NMDS scores for ggplot  
+nmds_scores <- scores(nmds, display = "sites") %>%
+  as.data.frame() %>%
+  rownames_to_column("Transect")
+
+#attach site and burn history information to NMDS scores list
+sites <- masterdata %>%
+  mutate(Transect = as.character(Transect)) %>%
+  select(Category.symbol, Transect) %>%
+  distinct(.keep_all = TRUE)
+nmds_scores <- nmds_scores %>%
+  left_join(sites, by = "Transect")
+
+#visuals
+nmds_scores$Category.symbol <- as.factor(nmds_scores$Category.symbol)
+ggplot(data = nmds_scores, aes(x = NMDS1, y = NMDS2, color = Category.symbol)) + 
+  geom_point(size = 5) + 
+  coord_cartesian(xlim = c(-1, 2), ylim = c(-1.5,1.5)) + 
+  theme_bw() +
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25))
+
+
+```
+
+```{r}
+#import 
+focaldata <- read.csv("masterdata2026_csv.csv")
+
+#clean
+names(focaldata)[names(focaldata) == "Transect.."] <- "Transect" #cleaning up column name for ease of later code
+
+focalsummary <- focaldata %>%
+  mutate(Transect = as.character(Transect), Presence = "1") %>%
+  dcast(Transect ~ Genus, value.var = "Presence", fun.aggregate = length, fill = 0)
+
+focalsummary2 <- focalsummary %>%
+  pivot_longer(cols= 2:last_col(), names_to ="Genus", values_to = "Present") %>%
+  filter(Genus == "Vaccinium" | Genus == "Gaylussacia" | Genus == "Gaultheria" | Genus == "Rubus") 
+ 
+
+focaldatastring <- focaldata %>%
+  mutate(Transect = as.character(Transect)) %>% 
+  mutate(Transect.unique = paste(Transect, Genus)) %>%
+  select(Category.symbol, Transect.unique) %>%
+  unique()
+
+#attach burn history information to NMDS scores list
+focalwithburn <- focalsummary2 %>%
+  mutate(Transect = as.character(Transect)) %>%
+  mutate(Transect.unique = paste(Transect, Genus)) %>%
+  left_join(focaldatastring, by = "Transect.unique") %>%
+  mutate(prop_present = Present/10)
+
+focalpropsummary <-focalwithburn %>%
+  group_by(Category.symbol) %>%
+  summarise(avg = mean(prop_present))
+
+
+
+
+
+
+
+
+
+
+```
