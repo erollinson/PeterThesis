@@ -14,7 +14,7 @@ library(reshape2) #for site by species matrix
 library(vegan) #for dissimilarity matrix
 library(ggh4x) #for nested facets in plots
 library(car)
-font_import()
+#font_import()
 ```
 
 # Species Richness and Composition
@@ -23,15 +23,21 @@ font_import()
 #import
 masterdata <- read.csv("masterdata2026_csv.csv")
 
+#clean
+names(masterdata)[names(masterdata) == "Transect.."] <- "Transect" #cleaning up column name for ease of later code
+
 #summary
 masterdatasummary <- masterdata %>%
   group_by(Category.symbol) %>%
   summarize(n=n_distinct(Species))
 
-#summary
+#just confirming number of transects per category
 masterdatasummarycat <- masterdata %>%
   group_by(Category.symbol) %>%
   summarize(n=n_distinct(Transect))
+
+#setting labels for time, not just the alphabet representations
+time_labs <- c("<1", "1 - 5", "5 - 10", ">10", "No Burn")
 
 ggplot(masterdatasummary) + 
   theme_test() +
@@ -41,7 +47,43 @@ ggplot(masterdatasummary) +
         axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
         axis.text.x = element_text(angle=45, vjust = 1, hjust = 1),
         text = element_text(family = "Open Sans Semibold", size = 25)) +
-  scale_x_discrete() +
+  scale_x_discrete(labels = time_labs) +
+  xlab("Years Since Prescribed Burn") + 
+  ylab("Richness")
+```
+
+#richness by layer
+```{r}
+#import
+masterdataLayer <- read.csv("masterdata2026_csv_v2.csv")
+
+#clean
+names(masterdataLayer)[names(masterdataLayer) == "Transect.."] <- "Transect" #cleaning up column name for ease of later code
+
+#filter to keep only herb layer
+masterdataHerb <- masterdataLayer %>%
+  filter(Stem.type == "herbaceous")
+
+#masterdataHerb <- masterdataLayer %>%
+ # filter_out(USDA.growth.habit == "tree" | USDA.growth.habit == "shrub/tree")
+
+#summary of herb layer species
+masterdataHerbSummary <- masterdataHerb %>%
+  group_by(Category.symbol) %>%
+  summarize(n=n_distinct(Species))
+
+#setting labels for time, not just the alphabet representations
+time_labs <- c("<1", "1 - 5", "5 - 10", ">10", "No Burn")
+
+ggplot(masterdataHerbSummary) + 
+  theme_test() +
+  geom_col(aes(x=Category.symbol, y=n), fill="#633B32", alpha = 0.5, color="black") +  
+   theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle=45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25)) +
+  scale_x_discrete(labels = time_labs) +
   xlab("Years Since Prescribed Burn") + 
   ylab("Richness")
 ```
@@ -49,15 +91,10 @@ ggplot(masterdatasummary) +
 ##Ordinations, Composition 
 ```{r}
 #import 
-masterdata <- read.csv("masterdata2026_csv.csv")
+masterdata <- read.csv("masterdata2026_csv_v2.csv")
 
 #clean
 names(masterdata)[names(masterdata) == "Transect.."] <- "Transect" #cleaning up column name for ease of later code
-
-#pivot to make a row for each transect and a column for each species frequency in that transect (min = 0 / absent, max = all quadrats in transect)
-#site_sp_matrix <- masterdata %>%
-#  mutate(TransectUnique = paste(Burn.Unit, Transect), Presence = "1") %>%
-#  dcast(TransectUnique ~ Species, value.var = "Presence", fun.aggregate = length, fill = 0)
 
 site_sp_matrix <- masterdata %>%
   mutate(Transect = as.character(Transect), Presence = "1") %>%
@@ -102,9 +139,67 @@ ggplot(data = nmds_scores, aes(x = NMDS1, y = NMDS2, color = Category.symbol)) +
 
 ```
 
+##Ordinations, Composition by layer
 ```{r}
 #import 
-focaldata <- read.csv("masterdata2026_csv.csv")
+masterOrdination <- read.csv("masterdata2026_csv_v2.csv")
+
+#clean
+names(masterOrdination)[names(masterOrdination) == "Transect.."] <- "Transect" #cleaning up column name for ease of later code
+
+#filter for herb only
+masterOrdinationHerb <- masterOrdination %>%
+  filter(Stem.type == "herbaceous")
+
+site_sp_matrix_herb <- masterOrdinationHerb %>%
+  mutate(Transect = as.character(Transect), Presence = "1") %>%
+  dcast(Transect ~ Species, value.var = "Presence", fun.aggregate = length, fill = 0)
+
+
+#cleanup to allow vegdist() to work
+rownames(site_sp_matrix_herb) <- site_sp_matrix_herb$Transect
+  
+#calculate pairwise dissimilarities, Bray-Curtis
+bray_matrix_herb <- vegdist(site_sp_matrix_herb[,2:ncol(site_sp_matrix_herb)], method = "bray")
+
+#calculate NMDS scores for all pairwise dissimilarities
+nmds_herb <- metaMDS(bray_matrix_herb, trymax = 999)
+ordiplot(nmds_herb)
+
+#export NMDS scores for ggplot  
+nmds_scores_herb <- scores(nmds_herb, display = "sites") %>%
+  as.data.frame() %>%
+  rownames_to_column("Transect")
+
+#attach site and burn history information to NMDS scores list
+sites_herb <- masterOrdinationHerb %>%
+  mutate(Transect = as.character(Transect)) %>%
+  select(Category.symbol, Transect) %>%
+  distinct(.keep_all = TRUE)
+nmds_scores_herb <- nmds_scores_herb %>%
+  left_join(sites_herb, by = "Transect")
+
+#visuals
+nmds_scores_herb$Category.symbol <- as.factor(nmds_scores_herb$Category.symbol)
+ggplot(data = nmds_scores_herb, aes(x = NMDS1, y = NMDS2, color = Category.symbol)) + 
+  geom_point(size = 5) + 
+  coord_cartesian(xlim = c(-1, 2), ylim = c(-1.5,1.5)) + 
+  theme_bw() +
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25))
+
+
+```
+
+
+
+##this is a mess im still figuring it out
+```{r}
+#import 
+focaldata <- read.csv("masterdata2026_csv_v2.csv")
 
 #clean
 names(focaldata)[names(focaldata) == "Transect.."] <- "Transect" #cleaning up column name for ease of later code
@@ -113,35 +208,117 @@ focalsummary <- focaldata %>%
   mutate(Transect = as.character(Transect), Presence = "1") %>%
   dcast(Transect ~ Genus, value.var = "Presence", fun.aggregate = length, fill = 0)
 
-focalsummary2 <- focalsummary %>%
+focalsummaryVac <- focalsummary %>%
   pivot_longer(cols= 2:last_col(), names_to ="Genus", values_to = "Present") %>%
-  filter(Genus == "Vaccinium" | Genus == "Gaylussacia" | Genus == "Gaultheria" | Genus == "Rubus") 
- 
+  filter(Genus == "Vaccinium")
 
+focalsummaryGay <- focalsummary %>%
+  pivot_longer(cols= 2:last_col(), names_to ="Genus", values_to = "Present") %>%
+  filter(Genus == "Gaylussacia")
+
+focalsummaryGau <- focalsummary %>%
+  pivot_longer(cols= 2:last_col(), names_to ="Genus", values_to = "Present") %>%
+  filter(Genus == "Gaultheria") 
+
+focalsummaryRub <- focalsummary %>%
+  pivot_longer(cols= 2:last_col(), names_to ="Genus", values_to = "Present") %>%
+  filter(Genus == "Rubus")
+ 
 focaldatastring <- focaldata %>%
   mutate(Transect = as.character(Transect)) %>% 
-  mutate(Transect.unique = paste(Transect, Genus)) %>%
-  select(Category.symbol, Transect.unique) %>%
+  select(Category.symbol, Transect) %>%
   unique()
 
 #attach burn history information to NMDS scores list
-focalwithburn <- focalsummary2 %>%
+focalVac <- focalsummaryVac %>%
   mutate(Transect = as.character(Transect)) %>%
-  mutate(Transect.unique = paste(Transect, Genus)) %>%
-  left_join(focaldatastring, by = "Transect.unique") %>%
+  left_join(focaldatastring, by = "Transect") %>%
   mutate(prop_present = Present/10)
 
-focalpropsummary <-focalwithburn %>%
-  group_by(Category.symbol) %>%
+focalRub <- focalsummaryRub %>%
+  mutate(Transect = as.character(Transect)) %>%
+  left_join(focaldatastring, by = "Transect") %>%
+  mutate(prop_present = Present/10)
+
+focalGay <- focalsummaryGay %>%
+  mutate(Transect = as.character(Transect)) %>%
+  left_join(focaldatastring, by = "Transect") %>%
+  mutate(prop_present = Present/10)
+
+focalGau <- focalsummaryGau %>%
+  mutate(Transect = as.character(Transect)) %>%
+  left_join(focaldatastring, by = "Transect") %>%
+  mutate(prop_present = Present/10)
+
+focalAll <- bind_rows(focalGau, focalGay, focalRub, focalVac)
+
+focalpropsummary <-focalAll %>%
+  group_by(Category.symbol, Genus) %>%
   summarise(avg = mean(prop_present))
 
+#setting labels for time, not just the alphabet representations
+time_labs <- c("<1", "1 - 5", "5 - 10", ">10", "No Burn")
 
+ggplot(focalpropsummary) +
+  theme_test() + 
+  geom_col(aes(x = Category.symbol, y = avg), fill = "#223204", alpha = 0.5, color = "black", width=0.5) +
+  facet_wrap(~Genus, ncol = 2) +
+  theme_test() + 
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25)) +
+   scale_x_discrete(labels = time_labs)
+   scale_y_continuous(limits = c(0, 1), expand = c(0,0)) +
+  xlab("Years Since Prescribed Burn") + 
+  ylab("Proportion of Occurrence")
 
+```
 
+#testing for specific species occurrence numbers
+```{r}
+#import 
+speciesTest <- read.csv("masterdata2026_csv_v2.csv")
 
+#clean
+names(speciesTest)[names(speciesTest) == "Transect.."] <- "Transect" #cleaning up column name for ease of later code
 
+speciesOccurance <- speciesTest %>%
+  mutate(Transect = as.character(Transect), Presence = "1") %>%
+  dcast(Transect ~ Species, value.var = "Presence", fun.aggregate = length, fill = 0)
 
+#filter for scrub oak
+speciesTestScrub <- speciesOccurance %>%
+  pivot_longer(cols= 2:last_col(), names_to ="Species", values_to = "Present") %>%
+  filter(Species == "Quercus ilicifolia")
 
+speciesTestString <- speciesTest %>%
+  mutate(Transect = as.character(Transect)) %>% 
+  select(Category.symbol, Transect) %>%
+  unique()
+
+propScrubOak <- speciesTestScrub %>%
+  mutate(Transect = as.character(Transect)) %>%
+  left_join(speciesTestString, by = "Transect") %>%
+  mutate(prop_present = Present/10)
+
+scrubPropSummary <-propScrubOak %>%
+  group_by(Category.symbol, Species) %>%
+  summarise(avg = mean(prop_present))
+
+ggplot(scrubPropSummary) +
+  theme_test() + 
+  geom_col(aes(x = Category.symbol, y = avg), fill = "#18777A", alpha = 0.5, color = "black", width=0.5) +
+  theme(strip.text = element_text(face = "italic"), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0)), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        text = element_text(family = "Open Sans Semibold", size = 25)) +
+   scale_y_continuous(limits = c(0, 1), expand = c(0,0)) +
+  xlab("Years Since Prescribed Burn") + 
+  ylab("Proportion of Occurrence")
 
 
 ```
+
